@@ -12,8 +12,8 @@ import io.OutputStreamBitSink;
 public class StaticACEncodeTextFile {
 
 	public static void main(String[] args) throws IOException {
-		String input_file_name = "data/uncompressed.txt";
-		String output_file_name = "data/static-compressed.dat";
+		String input_file_name = "data/video/out.dat";
+		String output_file_name = "data/video/static-compressed.dat";
 
 		int range_bit_width = 40;
 

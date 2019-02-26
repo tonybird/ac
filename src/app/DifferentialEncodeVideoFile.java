@@ -9,34 +9,42 @@ import java.util.Scanner;
 import ac.ArithmeticEncoder;
 import io.OutputStreamBitSink;
 
-public class ContextAdaptiveACEncodeTextFile {
+public class DifferentialEncodeVideoFile {
 
 	public static void main(String[] args) throws IOException {
 		String input_file_name = "data/video/out.dat";
-		String output_file_name = "data/video/context-adaptive-compressed.dat";
+		String output_file_name = "data/video/differential-compressed.dat";
 
 		int range_bit_width = 40;
-
+		
 		System.out.println("Encoding text file: " + input_file_name);
 		System.out.println("Output file: " + output_file_name);
 		System.out.println("Range Register Bit Width: " + range_bit_width);
 
 		int num_symbols = (int) new File(input_file_name).length();
-				
-		Integer[] symbols = new Integer[256];
-		for (int i=0; i<256; i++) {
-			symbols[i] = i;
+		int[] processed_bytes = new int[num_symbols];
+		
+		// Pre-process differential values
+		FileInputStream fis = new FileInputStream(input_file_name);
+		int next_byte = fis.read();
+		processed_bytes[0] = next_byte;
+		int prev_byte = next_byte;
+		for (int i = 1; i<num_symbols; i++) {
+			next_byte = fis.read();
+			processed_bytes[i] = next_byte - prev_byte;
+			prev_byte = next_byte;
+		}
+		fis.close();
+		
+		Integer[] symbols = new Integer[512];
+		int curr = -256;
+		for (int i=0; i<512; i++) {
+			symbols[i] = curr;
+			curr++;
 		}
 
-		// Create 256 models. Model chosen depends on value of symbol prior to 
-		// symbol being encoded.
-		
-		FreqCountIntegerSymbolModel[] models = new FreqCountIntegerSymbolModel[256];
-		
-		for (int i=0; i<256; i++) {
-			// Create new model with default count of 1 for all symbols
-			models[i] = new FreqCountIntegerSymbolModel(symbols);
-		}
+		// Create new model with default count of 1 for all symbols
+		FreqCountIntegerSymbolModel model = new FreqCountIntegerSymbolModel(symbols);
 
 		ArithmeticEncoder<Integer> encoder = new ArithmeticEncoder<Integer>(range_bit_width);
 
@@ -49,21 +57,13 @@ public class ContextAdaptiveACEncodeTextFile {
 		// Next byte is the width of the range registers
 		bit_sink.write(range_bit_width, 8);
 
-		// Now encode the input
-		FileInputStream fis = new FileInputStream(input_file_name);
-		
-		// Use model 0 as initial model.
-		FreqCountIntegerSymbolModel model = models[0];
-
+		// Now encode the input		
 		for (int i=0; i<num_symbols; i++) {
-			int next_symbol = fis.read();
+			int next_symbol = processed_bytes[i];
 			encoder.encode(next_symbol, model, bit_sink);
-			
-			// Update model used
-			model.addToCount(next_symbol);
-			
-			// Set up next model based on symbol just encoded
-			model = models[next_symbol];
+						
+			// Update model
+			model.addToCount(next_symbol+256);
 		}
 		fis.close();
 
